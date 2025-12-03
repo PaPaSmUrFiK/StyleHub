@@ -1,4 +1,5 @@
 // Утилита для автоматической загрузки изображений из папок
+import { getClothingImagePath } from './imagePath';
 
 export type ClothingImage = {
   id: string;
@@ -24,11 +25,12 @@ export function loadClothingImages(category: 'headwear' | 'top' | 'bottom' | 'sh
   const images: ClothingImage[] = [];
   
   // Используем import.meta.glob для динамической загрузки изображений
-  // В Vite путь должен быть относительно корня проекта
-  // Для файлов из public используем путь без /public, так как Vite копирует их в корень
+  // В Vite файлы из public доступны напрямую через /images/... (без /public)
+  // Но для правильной работы с base URL используем утилиту getClothingImagePath
   try {
-    // Пробуем загрузить через glob (работает на этапе сборки)
-    // Путь должен быть относительно src или использовать абсолютный путь от корня
+    // Пробуем загрузить через glob
+    // Путь должен быть относительно корня проекта, но без /public
+    // Vite автоматически обрабатывает файлы из public
     const imageModules = import.meta.glob('/public/images/*/*.{jpg,jpeg,png,webp,svg}', { 
       eager: true,
       as: 'url'
@@ -37,12 +39,14 @@ export function loadClothingImages(category: 'headwear' | 'top' | 'bottom' | 'sh
     // Фильтруем изображения по категории
     Object.entries(imageModules).forEach(([path, url]) => {
       if (path.includes(`/${category}/`)) {
-        const fileName = path.split('/').pop()?.replace(/\.[^/.]+$/, '') || 'item';
-        const fileExtension = path.match(/\.(jpg|jpeg|png|webp|svg)$/i)?.[0] || '.jpg';
+        // Извлекаем имя файла из пути
+        const pathParts = path.split('/');
+        const fullFileName = pathParts[pathParts.length - 1];
+        const fileName = fullFileName.replace(/\.[^/.]+$/, '');
         
-        // В Vite файлы из public доступны через /images/...
-        // URL от glob может быть разным, поэтому используем прямой путь
-        const publicUrl = `/images/${category}/${fileName}${fileExtension}`;
+        // Используем утилиту для правильного пути с учетом base URL
+        // Это гарантирует работу на GitHub Pages с base: "/StyleHub/"
+        const publicUrl = getClothingImagePath(category, fullFileName);
         
         images.push({
           id: `${category}-${fileName}`,
